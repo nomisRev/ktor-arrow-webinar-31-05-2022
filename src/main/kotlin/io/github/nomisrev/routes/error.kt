@@ -31,19 +31,11 @@ fun GenericErrorModel(vararg msg: String): GenericErrorModel =
   GenericErrorModel(GenericErrorModelErrors(msg.toList()))
 
 context(KtorCtx)
-  suspend inline fun <reified A : Any> Either<DomainError, A>.respond(status: HttpStatusCode): Unit =
+suspend inline fun <reified A : Any> Either<DomainError, A>.respond(status: HttpStatusCode): Unit =
   when (this) {
     is Either.Left -> respond(value)
     is Either.Right -> call.respond(status, value)
   }
-
-context(KtorCtx)
-  suspend inline fun <reified A : Any> conduit(
-  status: HttpStatusCode,
-  crossinline block: suspend context(EffectScope<DomainError>) () -> A
-): Unit = effect<DomainError, A> {
-  block(this)
-}.fold({ respond(it) }, { call.respond(status, it) })
 
 suspend fun KtorCtx.respond(error: Unexpected): Unit =
   internal(

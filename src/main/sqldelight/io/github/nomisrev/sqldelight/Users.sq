@@ -1,0 +1,15 @@
+import io.github.nomisrev.persistence.UserId;
+
+CREATE TABLE IF NOT EXISTS users(
+    id BIGSERIAL AS UserId PRIMARY KEY,
+    username VARCHAR(25) NOT NULL UNIQUE,
+    email VARCHAR(350) NOT NULL,
+    hashed_password BYTEA NOT NULL,
+    bio VARCHAR(500) NOT NULL DEFAULT '',
+    image TEXT NOT NULL DEFAULT ''
+);
+
+insertAndGetId:
+INSERT INTO users(email, username, hashed_password)
+VALUES (:email, :username, :hashed_password)
+RETURNING id;

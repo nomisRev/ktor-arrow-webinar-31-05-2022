@@ -41,11 +41,11 @@ fun Application.userRoutes() = routing {
   route("/users") {
     /* Registration: POST /api/users */
     post {
-      either<DomainError, UserWrapper<User>> {
+      conduit(HttpStatusCode.Created) {
         val (username, email, password) = receiveCatching<UserWrapper<NewUser>>().user
-        val token = UserService.register(RegisterUser(username, email, password)).bind().value
+        val token = UserService.register(RegisterUser(username, email, password)).value
         UserWrapper(User(email, token, username, "", ""))
-      }.respond(HttpStatusCode.Created)
+      }
     }
   }
 }

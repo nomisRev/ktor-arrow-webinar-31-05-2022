@@ -4,12 +4,16 @@ import arrow.core.NonEmptyList
 import arrow.core.continuations.EffectScope
 import arrow.core.nonEmptyListOf
 
+typealias DomainErrors = EffectScope<DomainError>
+
 sealed interface DomainError
 
 sealed interface ValidationError : DomainError
 data class IncorrectInput(val errors: NonEmptyList<InvalidField>) : ValidationError {
   constructor(head: InvalidField) : this(nonEmptyListOf(head))
 }
+
+typealias UserErrors = EffectScope<UserError>
 
 sealed interface UserError : DomainError
 data class UserNotFound(val property: String) : UserError

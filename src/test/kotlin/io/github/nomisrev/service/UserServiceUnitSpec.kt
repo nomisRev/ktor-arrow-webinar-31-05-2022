@@ -1,10 +1,12 @@
 package io.github.nomisrev.service
 
 import arrow.core.Either
-import arrow.core.left
+import arrow.core.continuations.EffectScope
+import arrow.core.continuations.effect
+import arrow.core.continuations.either
 import arrow.core.nonEmptyListOf
-import arrow.core.right
-import io.github.nomisrev.with
+import io.github.nomisrev.DomainError
+import io.github.nomisrev.DomainErrors
 import io.github.nomisrev.IncorrectInput
 import io.github.nomisrev.InvalidPassword
 import io.github.nomisrev.InvalidUsername
@@ -12,6 +14,7 @@ import io.github.nomisrev.InvalidEmail
 import io.github.nomisrev.UserError
 import io.github.nomisrev.JwtGeneration
 import io.github.nomisrev.TypePlacedHolder
+import io.github.nomisrev.UserErrors
 import io.github.nomisrev.persistence.UserId
 import io.github.nomisrev.persistence.UserPersistence
 import io.kotest.assertions.arrow.core.shouldBeLeft
@@ -80,14 +83,14 @@ class UserServiceUnitSpec : FreeSpec({
 
     "All valid returns a token" {
       val token = JwtToken("value")
-      userCtx(stubUserPersistence { _, _, _ -> UserId(1).right() }, { token.right() }) {
+      userCtx(stubUserPersistence { _, _, _ -> UserId(1) }, stubJwtService { token }) {
         UserService.register(RegisterUser(validUsername, validEmail, validPw))
       }.shouldBeRight(token)
     }
 
     "JwtGeneration fails" {
       val error = JwtGeneration("Failed")
-      userCtx(stubUserPersistence { _, _, _ -> UserId(1).right() }, { error.left() }) {
+      userCtx(stubUserPersistence { _, _, _ -> UserId(1) }, stubJwtService { shift(error) }) {
         UserService.register(RegisterUser(validUsername, validEmail, validPw))
       }.shouldBeLeft(error)
     }
@@ -95,14 +98,30 @@ class UserServiceUnitSpec : FreeSpec({
 })
 
 private fun stubUserPersistence(
-  insert: suspend (String, String, String) -> Either<UserError, UserId> = { _, _, _ -> TODO() }
+  insertUser: suspend context(UserErrors) (String, String, String) -> UserId = { _, _, _ -> TODO() }
 ) = object : UserPersistence {
-  override suspend fun insert(username: String, email: String, password: String): Either<UserError, UserId> =
-    insert(username, email, password)
+  context(UserErrors)
+  override suspend fun insert(username: String, email: String, password: String): UserId =
+    // TODO bug report, we should be able to call insert here without additional wrapping
+    effect<UserError, UserId> {
+      insertUser(this, username, email, password)
+    }.bind()
 }
 
-private inline fun <A> userCtx(
+private fun stubJwtService(
+  generateToken: suspend context(EffectScope<JwtGeneration>) (UserId) -> JwtToken = { TODO() }
+): JwtService = object: JwtService {
+  context(EffectScope<JwtGeneration>)
+  override suspend fun generateJwtToken(userId: UserId): JwtToken =
+    effect<JwtGeneration, JwtToken> {
+      generateToken(this, userId)
+    }.bind()
+}
+
+private suspend fun <A> userCtx(
   userPersistence: UserPersistence = stubUserPersistence(),
-  jwtService: JwtService = JwtService { TODO() },
-  block: context(UserPersistence, JwtService) (TypePlacedHolder<JwtService>) -> A
-) = with(userPersistence, jwtService, block)
+  jwtService: JwtService = stubJwtService(),
+  block: suspend context(UserPersistence, JwtService, DomainErrors) (TypePlacedHolder<DomainErrors>) -> A
+): Either<DomainError, A> = either {
+    block(userPersistence, jwtService, this, TypePlacedHolder)
+}

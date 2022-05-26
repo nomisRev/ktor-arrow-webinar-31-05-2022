@@ -1,6 +1,7 @@
 package io.github.nomisrev.service
 
 import arrow.core.Either
+import arrow.core.continuations.either
 import arrow.core.nonEmptyListOf
 import io.github.nomisrev.with
 import io.github.nomisrev.DomainError
@@ -32,7 +33,9 @@ class UserServiceIntegrationSpec : FreeSpec({
 
   suspend fun register(input: RegisterUser): Either<DomainError, JwtToken> =
     with(dependencies.userPersistence, dependencies.jwtService) {
-      UserService.register(input)
+      either {
+        UserService.register(input)
+      }
     }
 
   "register" - {

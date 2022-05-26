@@ -32,13 +32,11 @@ class UserRouteSpec : StringSpec({
         }
 
       response.status shouldBe HttpStatusCode.Created
-      assertSoftly {
-        val user = response.body<UserWrapper<User>>().user
-        user.username shouldBe username
-        user.email shouldBe email
-        user.bio shouldBe ""
-        user.image shouldBe ""
-      }
+      val user = response.body<UserWrapper<User>>().user
+      user.username shouldBe username
+      user.email shouldBe email
+      user.bio shouldBe ""
+      user.image shouldBe ""
     }
   }
 })

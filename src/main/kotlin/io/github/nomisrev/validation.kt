@@ -3,6 +3,7 @@ package io.github.nomisrev
 import arrow.core.NonEmptyList
 import arrow.core.Validated
 import arrow.core.ValidatedNel
+import arrow.core.continuations.EffectScope
 import arrow.core.invalidNel
 import arrow.core.nonEmptyListOf
 import arrow.core.validNel

@@ -1,6 +1,7 @@
 package io.github.nomisrev.service
 
 import arrow.core.Either
+import arrow.core.continuations.EffectScope
 import io.github.nefilim.kjwt.JWSAlgorithm
 import io.github.nefilim.kjwt.JWT
 import io.github.nefilim.kjwt.KJWTSignError
@@ -16,14 +17,17 @@ import kotlin.time.toJavaDuration
 @JvmInline
 value class JwtToken(val value: String)
 
-fun interface JwtService {
+interface JwtService {
   /** Generate a new JWT token for userId and password. Doesn't invalidate old password */
-  suspend fun generateJwtToken(userId: UserId): Either<JwtGeneration, JwtToken>
+  context(EffectScope<JwtGeneration>) // TODO report bug fun interface + context
+  suspend fun generateJwtToken(userId: UserId): JwtToken
 }
 
 @Suppress("FUNCTION_NAME")
-fun JwtService(auth: Env.Auth): JwtService = JwtService { userId ->
-  JWT.hs512 {
+fun JwtService(auth: Env.Auth): JwtService = object : JwtService {
+  context(EffectScope<JwtGeneration>)
+  override suspend fun generateJwtToken(userId: UserId): JwtToken =
+    JWT.hs512 {
     val now = LocalDateTime.now(ZoneId.of("UTC"))
     issuedAt(now)
     expiresAt(now + auth.duration.toJavaDuration())
@@ -31,11 +35,12 @@ fun JwtService(auth: Env.Auth): JwtService = JwtService { userId ->
     claim("id", userId.serial)
   }
     .sign(auth.secret)
-    .toJwtError()
-    .map { JwtToken(it.rendered) }
+    .bind()
+    .let { JwtToken(it.rendered) }
 }
 
-private fun <A : JWSAlgorithm> Either<KJWTSignError, SignedJWT<A>>.toJwtError(): Either<JwtGeneration, SignedJWT<A>> =
+context(EffectScope<JwtGeneration>)
+private suspend fun <A : JWSAlgorithm> Either<KJWTSignError, SignedJWT<A>>.bind(): SignedJWT<A> =
   mapLeft { jwtError ->
     when (jwtError) {
       KJWTSignError.InvalidKey -> JwtGeneration("JWT singing error: invalid Secret Key.")
@@ -43,4 +48,4 @@ private fun <A : JWSAlgorithm> Either<KJWTSignError, SignedJWT<A>>.toJwtError():
         JwtGeneration("JWT singing error: Generated with incorrect JWT data")
       is KJWTSignError.SigningError -> JwtGeneration("JWT singing error: ${jwtError.cause}")
     }
-  }
+  }.bind()

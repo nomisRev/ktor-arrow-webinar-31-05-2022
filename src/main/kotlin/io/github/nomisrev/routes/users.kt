@@ -5,6 +5,8 @@ import arrow.core.continuations.EffectScope
 import arrow.core.continuations.either
 import io.github.nomisrev.DomainError
 import io.github.nomisrev.Unexpected
+import io.github.nomisrev.persistence.UserPersistence
+import io.github.nomisrev.service.JwtService
 import io.github.nomisrev.service.RegisterUser
 import io.github.nomisrev.service.UserService
 import io.ktor.http.HttpStatusCode
@@ -34,13 +36,14 @@ data class User(
   val image: String
 )
 
-fun Application.userRoutes(users: UserService) = routing {
+context(UserPersistence, JwtService)
+fun Application.userRoutes() = routing {
   route("/users") {
     /* Registration: POST /api/users */
     post {
       either<DomainError, UserWrapper<User>> {
         val (username, email, password) = receiveCatching<UserWrapper<NewUser>>().user
-        val token = users.register(RegisterUser(username, email, password)).bind().value
+        val token = UserService.register(RegisterUser(username, email, password)).bind().value
         UserWrapper(User(email, token, username, "", ""))
       }.respond(HttpStatusCode.Created)
     }

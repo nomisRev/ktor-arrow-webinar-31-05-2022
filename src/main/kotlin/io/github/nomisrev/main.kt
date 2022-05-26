@@ -25,5 +25,7 @@ fun main(): Unit = cancelOnShutdown(Dispatchers.Default) {
 fun Application.app(module: Dependencies) {
   install(DefaultHeaders)
   install(ContentNegotiation) { json() }
-  userRoutes(module.userService)
+  with(module.userPersistence, module.jwtService) {
+    userRoutes()
+  }
 }

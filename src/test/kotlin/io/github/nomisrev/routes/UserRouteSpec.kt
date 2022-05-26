@@ -3,9 +3,10 @@ package io.github.nomisrev.routes
 import io.github.nomisrev.PostgreSQLContainer
 import io.github.nomisrev.env.Env
 import io.github.nomisrev.env.dependencies
+import io.github.nomisrev.env.hikari
+import io.github.nomisrev.query
 import io.github.nomisrev.resource
 import io.github.nomisrev.withService
-import io.kotest.assertions.assertSoftly
 import io.kotest.core.spec.style.StringSpec
 import io.kotest.matchers.shouldBe
 import io.ktor.client.call.body
@@ -16,12 +17,15 @@ import io.ktor.http.HttpStatusCode
 import io.ktor.http.contentType
 
 class UserRouteSpec : StringSpec({
-  val env = Env().copy(dataSource = PostgreSQLContainer.config())
+  val env = Env().copy(dataSource = PostgreSQLContainer.dataSource())
+  val dataSource by resource(hikari(env.dataSource))
   val dependencies by resource(dependencies(env))
 
   val username = "username"
   val email = "valid@domain.com"
   val password = "123456789"
+
+  afterTest { dataSource.query("TRUNCATE users") }
 
   "Can register user" {
     withService(dependencies) {

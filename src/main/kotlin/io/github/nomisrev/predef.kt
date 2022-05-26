@@ -10,6 +10,10 @@ import kotlinx.coroutines.runBlocking
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
+import kotlin.contracts.ExperimentalContracts
+import kotlin.contracts.InvocationKind
+import kotlin.contracts.InvocationKind.EXACTLY_ONCE
+import kotlin.contracts.contract
 import kotlin.coroutines.Continuation
 import kotlin.coroutines.CoroutineContext
 import kotlin.coroutines.EmptyCoroutineContext
@@ -18,6 +22,18 @@ import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
 
 typealias KtorCtx = PipelineContext<Unit, ApplicationCall>
+
+// https://youtrack.jetbrains.com/issue/KT-51243
+@OptIn(ExperimentalContracts::class)
+inline fun <A, B, R> with(a: A, b: B, block: context(A, B) (TypePlacedHolder<B>) -> R): R {
+  contract { callsInPlace(block, EXACTLY_ONCE) }
+  return block(a, b, TypePlacedHolder)
+}
+
+// Work-around for bug with context receiver lambda
+sealed interface TypePlacedHolder<out A> {
+  companion object : TypePlacedHolder<Nothing>
+}
 
 /**
  * Alternative to runBlocking which cancels the inner coroutine on SIGINT.

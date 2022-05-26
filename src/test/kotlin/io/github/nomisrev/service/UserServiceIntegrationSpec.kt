@@ -1,6 +1,9 @@
 package io.github.nomisrev.service
 
+import arrow.core.Either
 import arrow.core.nonEmptyListOf
+import io.github.nomisrev.with
+import io.github.nomisrev.DomainError
 import io.github.nomisrev.IncorrectInput
 import io.github.nomisrev.InvalidEmail
 import io.github.nomisrev.InvalidPassword
@@ -17,19 +20,24 @@ import io.kotest.assertions.arrow.core.shouldBeRight
 import io.kotest.core.spec.style.FreeSpec
 
 class UserServiceIntegrationSpec : FreeSpec({
-  val config = Env().copy(dataSource = PostgreSQLContainer.config())
-  val dataSource by resource(hikari(config.dataSource))
-  val userService by resource(dependencies(config).map { it.userService })
+  val env = Env().copy(dataSource = PostgreSQLContainer.dataSource())
+  val dataSource by resource(hikari(env.dataSource))
+  val dependencies by resource(dependencies(env))
 
   val validUsername = "username"
   val validEmail = "valid@domain.com"
   val validPw = "123456789"
 
-  afterTest { dataSource.query("TRUNCATE users CASCADE") }
+  afterTest { dataSource.query("TRUNCATE users") }
+
+  suspend fun register(input: RegisterUser): Either<DomainError, JwtToken> =
+    with(dependencies.userPersistence, dependencies.jwtService) {
+      UserService.register(input)
+    }
 
   "register" - {
     "username cannot be empty" {
-      val res = userService.register(RegisterUser("", validEmail, validPw))
+      val res = register(RegisterUser("", validEmail, validPw))
       val errors = nonEmptyListOf("Cannot be blank", "is too short (minimum is 1 characters)")
       val expected = IncorrectInput(InvalidUsername(errors))
       res shouldBeLeft expected
@@ -37,14 +45,14 @@ class UserServiceIntegrationSpec : FreeSpec({
 
     "username longer than 25 chars" {
       val name = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
-      val res = userService.register(RegisterUser(name, validEmail, validPw))
+      val res = register(RegisterUser(name, validEmail, validPw))
       val errors = nonEmptyListOf("is too long (maximum is 25 characters)")
       val expected = IncorrectInput(InvalidUsername(errors))
       res shouldBeLeft expected
     }
 
     "email cannot be empty" {
-      val res = userService.register(RegisterUser(validUsername, "", validPw))
+      val res = register(RegisterUser(validUsername, "", validPw))
       val errors = nonEmptyListOf("Cannot be blank", "'' is invalid email")
       val expected = IncorrectInput(InvalidEmail(errors))
       res shouldBeLeft expected
@@ -52,7 +60,7 @@ class UserServiceIntegrationSpec : FreeSpec({
 
     "email too long" {
       val email = "${(0..340).joinToString("") { "A" }}@domain.com"
-      val res = userService.register(RegisterUser(validUsername, email, validPw))
+      val res = register(RegisterUser(validUsername, email, validPw))
       val errors = nonEmptyListOf("is too long (maximum is 350 characters)")
       val expected = IncorrectInput(InvalidEmail(errors))
       res shouldBeLeft expected
@@ -60,14 +68,14 @@ class UserServiceIntegrationSpec : FreeSpec({
 
     "email is not valid" {
       val email = "AAAA"
-      val res = userService.register(RegisterUser(validUsername, email, validPw))
+      val res = register(RegisterUser(validUsername, email, validPw))
       val errors = nonEmptyListOf("'$email' is invalid email")
       val expected = IncorrectInput(InvalidEmail(errors))
       res shouldBeLeft expected
     }
 
     "password cannot be empty" {
-      val res = userService.register(RegisterUser(validUsername, validEmail, ""))
+      val res = register(RegisterUser(validUsername, validEmail, ""))
       val errors = nonEmptyListOf("Cannot be blank", "is too short (minimum is 8 characters)")
       val expected = IncorrectInput(InvalidPassword(errors))
       res shouldBeLeft expected
@@ -75,19 +83,19 @@ class UserServiceIntegrationSpec : FreeSpec({
 
     "password can be max 100" {
       val password = (0..100).joinToString("") { "A" }
-      val res = userService.register(RegisterUser(validUsername, validEmail, password))
+      val res = register(RegisterUser(validUsername, validEmail, password))
       val errors = nonEmptyListOf("is too long (maximum is 100 characters)")
       val expected = IncorrectInput(InvalidPassword(errors))
       res shouldBeLeft expected
     }
 
     "All valid returns a token" {
-      userService.register(RegisterUser(validUsername, validEmail, validPw)).shouldBeRight()
+      register(RegisterUser(validUsername, validEmail, validPw)).shouldBeRight()
     }
 
     "Register twice results in" {
-      userService.register(RegisterUser(validUsername, validEmail, validPw)).shouldBeRight()
-      val res = userService.register(RegisterUser(validUsername, validEmail, validPw))
+      register(RegisterUser(validUsername, validEmail, validPw)).shouldBeRight()
+      val res = register(RegisterUser(validUsername, validEmail, validPw))
       res shouldBeLeft UsernameAlreadyExists(validUsername)
     }
   }

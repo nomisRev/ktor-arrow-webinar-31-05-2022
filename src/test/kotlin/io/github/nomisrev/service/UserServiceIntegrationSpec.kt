@@ -20,9 +20,9 @@ import io.kotest.assertions.arrow.core.shouldBeRight
 import io.kotest.core.spec.style.FreeSpec
 
 class UserServiceIntegrationSpec : FreeSpec({
-  val env = Env().copy(dataSource = PostgreSQLContainer.dataSource())
-  val dataSource by resource(hikari(env.dataSource))
-  val dependencies by resource(dependencies(env))
+  val config = Env().copy(dataSource = PostgreSQLContainer.config())
+  val dataSource by resource(hikari(config.dataSource))
+  val dependencies by resource(dependencies(config))
 
   val validUsername = "username"
   val validEmail = "valid@domain.com"

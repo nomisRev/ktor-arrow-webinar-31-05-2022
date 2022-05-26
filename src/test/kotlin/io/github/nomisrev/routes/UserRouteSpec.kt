@@ -17,15 +17,12 @@ import io.ktor.http.HttpStatusCode
 import io.ktor.http.contentType
 
 class UserRouteSpec : StringSpec({
-  val env = Env().copy(dataSource = PostgreSQLContainer.dataSource())
-  val dataSource by resource(hikari(env.dataSource))
+  val env = Env().copy(dataSource = PostgreSQLContainer.config())
   val dependencies by resource(dependencies(env))
 
   val username = "username"
   val email = "valid@domain.com"
   val password = "123456789"
-
-  afterTest { dataSource.query("TRUNCATE users") }
 
   "Can register user" {
     withService(dependencies) {

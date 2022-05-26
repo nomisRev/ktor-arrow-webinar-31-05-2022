@@ -10,7 +10,7 @@ data class RegisterUser(val username: String, val email: String, val password: S
 
 object UserService {
   context(UserPersistence, JwtService)
-    suspend fun register(input: RegisterUser): Either<DomainError, JwtToken> =
+  suspend fun register(input: RegisterUser): Either<DomainError, JwtToken> =
     either {
       val (username, email, password) = input.validate().bind()
       val userId = insert(username, email, password).bind()

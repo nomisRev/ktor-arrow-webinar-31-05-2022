@@ -3,9 +3,10 @@ package io.github.nomisrev.routes
 import io.github.nomisrev.PostgreSQLContainer
 import io.github.nomisrev.env.Env
 import io.github.nomisrev.env.dependencies
+import io.github.nomisrev.env.hikari
+import io.github.nomisrev.query
 import io.github.nomisrev.resource
 import io.github.nomisrev.withService
-import io.kotest.assertions.assertSoftly
 import io.kotest.core.spec.style.StringSpec
 import io.kotest.matchers.shouldBe
 import io.ktor.client.call.body
